@@ -33,6 +33,7 @@ const https = require('https');
 const zlib = require('zlib');
 const sqlite3 = require('sqlite3');
 const urlHelper = require('url');
+const pathHelper = require('path');
 const querystring = require('querystring');
 const glob = require("glob");
 
@@ -173,11 +174,12 @@ function respondWithPdf(response, filepath, filename) {
 }
 
 function handleGET(url, headers, body, response) {
-    console.log("GET request for "+url);
     
     url = urlHelper.parse(url);
     var pathname = url.pathname;
     var query = url.query;
+
+    console.log("GET request for "+pathname);
 
     if(pathname == "/") {
         respond(response, GET_DEFAULT_RESPONSE, 200);
@@ -239,11 +241,11 @@ function handleDownload(response, query) {
     });
 
     function returnFile(userdata) {
-        // <title>_<instrument>_<*>.pdf
+        // <title>_<instrument><_*>.pdf
         var parsedFilename = params.file.split("_");
         try {
             var title = parsedFilename[0];
-            var instrument = parsedFilename[1];
+            var instrument = pathHelper.basename(parsedFilename[1], '.pdf');
             if(userdata.instruments.indexOf(instrument) == -1) {
                 throw "Instrument not in userdata";
             }
@@ -257,12 +259,12 @@ function handleDownload(response, query) {
 }
 
 function getFilenames(instruments, title, callback) {
-    //<sheet path>/<title>/<title>_<instrument>_<*>.pdf
+    //<sheet path>/<title>/<title>_<instrument><_*>.pdf
     var tasks = instruments.length;
     var error;
     var filenames = [];
     for(var i = 0; i < instruments.length; i++) {
-        glob(title+"_"+instruments[i]+"_*.pdf", {cwd: SHEET_PATH+title+"/"}, function(err, files) {
+        glob(title+"_"+instruments[i]+"*.pdf", {cwd: SHEET_PATH+title+"/"}, function(err, files) {
             if(err) {
                 console.log(err);
                 error = err;
