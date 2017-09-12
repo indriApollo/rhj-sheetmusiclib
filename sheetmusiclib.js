@@ -322,8 +322,7 @@ function dbRequestHandler(func, funcArgs, callback) {
 function checkToken(token, callback) {
 
     var options = {
-        host: "localhost",
-        port: "8002",
+        host: "auth.indriapollo.be",
         path: "/userdata",
         headers: {
             "Auth-Token": token
@@ -332,7 +331,7 @@ function checkToken(token, callback) {
 
     var body = [];
 
-    http.get(options, function(response) {
+    https.get(options, function(response) {
 
         var gunzip = zlib.createGunzip();
     
