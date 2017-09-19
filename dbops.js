@@ -2,7 +2,7 @@ module.exports = {
     
     getTitlesFromDb: function(db, callback) {
         var result = [];
-        db.each("SELECT title FROM titles LIMIT 300", [], function(err,row) {
+        db.each("SELECT title FROM titles order by title LIMIT 300", [], function(err,row) {
             if(err) {
                 console.log(err);
                 callback([err]);
@@ -19,7 +19,7 @@ module.exports = {
 
     getInstrumentsFromDb: function(db, callback) {
         var result = [];
-        db.each("SELECT instrument FROM instruments LIMIT 300", [], function(err,row) {
+        db.each("SELECT instrument FROM instruments order by instrument LIMIT 300", [], function(err,row) {
             if(err) {
                 console.log(err);
                 callback([err]);

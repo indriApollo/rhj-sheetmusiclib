@@ -207,7 +207,7 @@ function handleGET(url, headers, body, response) {
                 returnAllTitles(response);
             else if(pathname == "/instruments")
                 returnAllInstruments(response);
-            else if(/sheets\/\w*/.test(pathname) )
+            else if(/sheets\/[\w-%]*$/.test(pathname) )
                 returnFilenames(response, pathname, userdata.instruments);
             else
                 respond(response, "Unknown uri", 404);
@@ -261,6 +261,12 @@ function handleDownload(response, query) {
 function getFilenames(instruments, title, callback) {
     //<sheet path>/<title>/<title>_<instrument><_*>.pdf
     var tasks = instruments.length;
+
+    if(tasks == 0) {
+        callback(null, []);
+        return;
+    }
+
     var error;
     var filenames = [];
     for(var i = 0; i < instruments.length; i++) {
@@ -279,7 +285,9 @@ function getFilenames(instruments, title, callback) {
 
 function returnFilenames(response, pathname, instruments) {
     var p = pathname.split("/");
-    var title = p[2];
+    var title = decodeURIComponent(p[2]);
+
+    console.log("Looking for title", title);
 
     getFilenames(instruments, title, function(err, files) {
         if(err) {
