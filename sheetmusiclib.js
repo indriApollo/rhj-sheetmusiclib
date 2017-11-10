@@ -1,33 +1,6 @@
 #!/usr/bin/env node
 
 const fs = require("fs");
-
-// load config.json
-try {
-    var confFile = fs.readFileSync("config.json","utf8");
-    var config = JSON.parse(confFile);
-}
-catch(err) {
-    console.log("Could not read configuration from config.json");
-    console.log(err);
-    return;
-}
-
-// set default if value was not set in config
-function setVal(confKey, defaultValue) {
-    var val;
-    if(typeof config[confKey] !== "undefined")
-        val = config[confKey];
-    else
-        val = defaultValue;
-
-    if(confKey.match(/password/i))
-        console.log("[config] "+confKey+" -> ********");
-    else
-        console.log("[config] "+confKey+" ->", val);
-    return val;
-}
-
 const http = require('http'); // no https for server because we are behind a proxy
 const https = require('https');
 const zlib = require('zlib');
@@ -38,16 +11,10 @@ const querystring = require('querystring');
 const glob = require("glob");
 
 const dbops = require("./dbops.js");
+const conf = require("./configloader.js");
 
-const DB_NAME = setVal("DB_NAME", "sheetmusiclib.db");
-const SERVER_PORT = setVal("SERVER_PORT", 8001);
-
-const SHEET_PATH = setVal("SHEET_PATH", "./musicsheets/");
-
-const GET_DEFAULT_RESPONSE = setVal("GET_DEFAULT_RESPONSE", {
-    "message": "Welcome to sheetmusiclib",
-    "doc": "https://github.com/indriApollo/rhj-sheetmusiclib"
-});
+console.log("Loading config ...");
+conf.load();
 
 http.createServer(function(request, response) {
     
@@ -75,10 +42,6 @@ http.createServer(function(request, response) {
                 handleGET(url, headers, body, response);
                 break;
     
-            /*case 'POST':
-                handlePOST(url, headers, body, response);
-                break;*/
-    
             case 'OPTIONS':
                 handleCORS(response);
                 break;
@@ -88,8 +51,8 @@ http.createServer(function(request, response) {
                 break;
         }
     });
-}).listen(SERVER_PORT);
-console.log("server listening on port "+SERVER_PORT);
+}).listen(conf.get("SERVER_PORT"));
+console.log("server listening on port "+conf.get("SERVER_PORT"));
 
 function handleCORS(response) {
     
@@ -142,7 +105,7 @@ function respond(response, data, status) {
 
 function respondWithPdf(response, filepath, filename) {
 
-    var path = SHEET_PATH+filepath;
+    var path = conf.get("SHEET_PATH")+filepath;
     console.log("Streaming "+path);
 
     fs.stat(path, function(err, stats) {
@@ -182,7 +145,7 @@ function handleGET(url, headers, body, response) {
     console.log("GET request for "+pathname);
 
     if(pathname == "/") {
-        respond(response, GET_DEFAULT_RESPONSE, 200);
+        respond(response, conf.get("GET_DEFAULT_RESPONSE"), 200);
         return
     }
 
@@ -205,10 +168,14 @@ function handleGET(url, headers, body, response) {
         else {
             if(pathname == "/titles")
                 returnAllTitles(response);
+            else if(/titles\/[\w-%]*$/.test(pathname) )
+                returnTitlesWithTag(response, pathname);
             else if(pathname == "/instruments")
                 returnAllInstruments(response);
             else if(/sheets\/[\w-%]*$/.test(pathname) )
                 returnFilenames(response, pathname, userdata.instruments);
+            else if(pathname == "/tags")
+                returnAllTags(response);
             else
                 respond(response, "Unknown uri", 404);
         }
@@ -218,6 +185,7 @@ function handleGET(url, headers, body, response) {
 function handleDownload(response, query) {
     
     var params = querystring.parse(query);
+    // check if file param is a valid pdf filename
     if(!params.file || !(/^[\w\-]+\.pdf$/gi.test(params.file)) ) {
         respond(response, "Missing file param", 400);
         return;
@@ -270,7 +238,7 @@ function getFilenames(instruments, title, callback) {
     var error;
     var filenames = [];
     for(var i = 0; i < instruments.length; i++) {
-        glob(title+"_"+instruments[i]+"*.pdf", {cwd: SHEET_PATH+title+"/"}, function(err, files) {
+        glob(title+"_"+instruments[i]+"*.pdf", {cwd: conf.get("SHEET_PATH")+title+"/"}, function(err, files) {
             if(err) {
                 console.log(err);
                 error = err;
@@ -299,7 +267,7 @@ function returnFilenames(response, pathname, instruments) {
 }
 
 function returnAllTitles(response) {
-    dbRequestHandler(dbops.getTitlesFromDb, [], function(err, titles) {
+    dbRequestHandler(dbops.getTitlesFromDb, function(err, titles) {
         if(err)
             respond(response, "Internal service error", 500);
         else
@@ -308,7 +276,7 @@ function returnAllTitles(response) {
 }
 
 function returnAllInstruments(response) {
-    dbRequestHandler(dbops.getInstrumentsFromDb, [], function(err, instruments) {
+    dbRequestHandler(dbops.getInstrumentsFromDb, function(err, instruments) {
         if(err)
             respond(response, "Internal service error", 500);
         else
@@ -316,12 +284,35 @@ function returnAllInstruments(response) {
     });
 }
 
-function dbRequestHandler(func, funcArgs, callback) {
-    
+function returnAllTags(response) {
+    dbRequestHandler(dbops.getTagsFromDb, function(err, tags) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else
+            respond(response, {"tags": tags}, 200);
+    });
+}
+
+function returnTitlesWithTag(response, pathname) {
+    var p = pathname.split("/");
+    var tag = decodeURIComponent(p[2]);
+    console.log("Looking for titles with tag", tag);
+
+    dbRequestHandler(dbops.getTitlesWithTagFromDb, tag, function(err, titles) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else
+            respond(response, {"titles": titles}, 200);
+    });
+}
+
+function dbRequestHandler(func, ...funcArgs) {
+    const callback = funcArgs.pop(); // last arg should be callback
     // We use a new db object for every transaction to assure isolation
     // See https://github.com/mapbox/node-sqlite3/issues/304
-    var db = new sqlite3.Database(DB_NAME);
-    func(db, ...funcArgs, function(cbArgs) {
+    var db = new sqlite3.Database(conf.get("DB_NAME"));
+    db.configure("busyTimeout", conf.get("BUSY_TIMEOUT"));
+    func(db, ...funcArgs, function(...cbArgs) { //note ... -> spread operator (I know, right?)
         db.close();
         callback(...cbArgs);
     });
@@ -389,22 +380,4 @@ function checkToken(token, callback) {
             callback(err);
         }
     }
-}
-
-function checkJson(jsonString, pnames) {
-    var r = {};
-    try {
-        r.jsonData = JSON.parse(jsonString);
-
-        for(var i = 0; i < pnames.length; i++) {
-            var property = pnames[i];
-            if(!r.jsonData.hasOwnProperty(property))
-                throw "Missing or invalid "+property+" property";
-        }
-    }
-    catch(err) {
-        console.log(err);
-        r.error = "Invalid json";
-    }
-    return r;
 }

@@ -9,3 +9,15 @@ create table instruments(
     instrument text not null,
     CONSTRAINT instrument_unique UNIQUE (instrument)
 );
+
+create table tags(
+    id integer primary key,
+    tag text not null,
+    CONSTRAINT tag_unique UNIQUE (tag)
+);
+
+create table title_tag_join(
+    id integer primary key,
+    titleId integer,
+    tagId integer
+);

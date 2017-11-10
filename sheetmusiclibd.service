@@ -1,0 +1,15 @@
+[Unit]
+Description=rhj sheetmusic library
+Requires=apache2.service
+
+[Service]
+WorkingDirectory=/home/raphael/sheetmusiclib
+ExecStart=/usr/bin/node sheetmusiclib.js
+Restart=always
+RestartSec=1
+SyslogIdentifier=sheetmusiclibd
+User=raphael
+
+[Install]
+WantedBy=multi-user.target
+
