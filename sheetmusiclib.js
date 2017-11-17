@@ -39,7 +39,19 @@ http.createServer(function(request, response) {
     
         switch(method) {
             case 'GET':
-                handleGET(url, headers, body, response);
+                handleGET(url, headers, response);
+                break;
+
+            case 'POST':
+                handlePost(url, headers, response);
+                break;
+
+            case 'PUT':
+                handlePut(url, headers, response);
+                break;
+                
+            case 'DELETE':
+                handleDelete(url, headers, response);
                 break;
     
             case 'OPTIONS':
@@ -68,17 +80,17 @@ function handleCORS(response) {
     response.setHeader('Access-Control-Allow-Origin', '*');
     // We have to explicitly allow Auth-Token since it's a custom header
     response.setHeader('Access-Control-Allow-Headers', 'Auth-Token,User-Agent,Content-Type'); //can't use * !
-    // We allow POST, GET and OPTIONS http methods
-    response.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    // We allow POST, GET, PUT, DELETE and OPTIONS http methods
+    response.setHeader('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
     response.end();
 }
 
 function respond(response, data, status) {
     
-    // http 200 responses already have json data
+    // http 200 - 201 responses already have json data
     // Other status codes are using a simple json message: <msg> format
-    if(status != 200)
-        data = { message: data};
+    if(status != 200 && status != 201)
+        data = {"message": data};
     
     // We pretty print the json data and store it in  an utf-8 buffer
     // Storing it in a buffer means that we can easily gzip it later
@@ -106,7 +118,7 @@ function respond(response, data, status) {
 function respondWithPdf(response, filepath, filename) {
 
     var path = conf.get("SHEET_PATH")+filepath;
-    console.log("Streaming "+path);
+    console.log("Streaming", path);
 
     fs.stat(path, function(err, stats) {
 
@@ -136,7 +148,90 @@ function respondWithPdf(response, filepath, filename) {
     });
 }
 
-function handleGET(url, headers, body, response) {
+function handlePut(url, headers, response) {
+
+    url = urlHelper.parse(url);
+    var pathname = url.pathname;
+
+    console.log("PUT request for "+pathname);
+
+    if(!headers["auth-token"]) {
+        respond(response, "Missing Auth-Token header", 400);
+        return;
+    }
+    var token = headers["auth-token"];
+
+    checkToken(token, function(err, valid, userdata) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else if(!valid)
+            respond(response, "Unknown or expired token", 403);
+        else {
+            if(/tag\/[\w-%]*\/rename\/[\w-%]*$/.test(pathname) )
+                modifyTag(response, pathname);
+            else
+                respond(response, "Unknown uri", 404);
+        }
+    });
+}
+
+function handleDelete(url, headers, response) {
+    
+    url = urlHelper.parse(url);
+    var pathname = url.pathname;
+
+    console.log("DELETE request for "+pathname);
+
+    if(!headers["auth-token"]) {
+        respond(response, "Missing Auth-Token header", 400);
+        return;
+    }
+    var token = headers["auth-token"];
+
+    checkToken(token, function(err, valid, userdata) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else if(!valid)
+            respond(response, "Unknown or expired token", 403);
+        else {
+            if(/tag\/[\w-%]*$/.test(pathname) )
+                deleteTag(response, pathname);
+            else
+                respond(response, "Unknown uri", 404);
+        }
+    });
+}
+
+function handlePost(url, headers, response) {
+
+    url = urlHelper.parse(url);
+    var pathname = url.pathname;
+
+    console.log("POST request for "+pathname);
+
+    if(!headers["auth-token"]) {
+        respond(response, "Missing Auth-Token header", 400);
+        return;
+    }
+    var token = headers["auth-token"];
+
+    checkToken(token, function(err, valid, userdata) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else if(!valid)
+            respond(response, "Unknown or expired token", 403);
+        else {
+            if(/tag\/[\w-%]*$/.test(pathname) )
+                addNewTag(response, pathname);
+            else if(/tag\/[\w-%]*\/title\/[\w-%]*$/.test(pathname) )
+                newTitleWithTag(response, pathname);
+            else
+                respond(response, "Unknown uri", 404);
+        }
+    });
+}
+
+function handleGET(url, headers, response) {
     
     url = urlHelper.parse(url);
     var pathname = url.pathname;
@@ -252,6 +347,7 @@ function getFilenames(instruments, title, callback) {
 }
 
 function returnFilenames(response, pathname, instruments) {
+    // GET sheets/<title>
     var p = pathname.split("/");
     var title = decodeURIComponent(p[2]);
 
@@ -262,11 +358,12 @@ function returnFilenames(response, pathname, instruments) {
             console.log("Could not return filenames", err);
             respond(response, "Internal service error", 500);
         }
-        respond(response, {sheets: files}, 200);
+        respond(response, {"sheets": files}, 200);
     });
 }
 
 function returnAllTitles(response) {
+    // GET titles
     dbRequestHandler(dbops.getTitlesFromDb, function(err, titles) {
         if(err)
             respond(response, "Internal service error", 500);
@@ -276,6 +373,7 @@ function returnAllTitles(response) {
 }
 
 function returnAllInstruments(response) {
+    // GET instruments
     dbRequestHandler(dbops.getInstrumentsFromDb, function(err, instruments) {
         if(err)
             respond(response, "Internal service error", 500);
@@ -285,6 +383,7 @@ function returnAllInstruments(response) {
 }
 
 function returnAllTags(response) {
+    // GET tags
     dbRequestHandler(dbops.getTagsFromDb, function(err, tags) {
         if(err)
             respond(response, "Internal service error", 500);
@@ -294,6 +393,7 @@ function returnAllTags(response) {
 }
 
 function returnTitlesWithTag(response, pathname) {
+    // GET titles/<tag>
     var p = pathname.split("/");
     var tag = decodeURIComponent(p[2]);
     console.log("Looking for titles with tag", tag);
@@ -304,6 +404,130 @@ function returnTitlesWithTag(response, pathname) {
         else
             respond(response, {"titles": titles}, 200);
     });
+}
+
+function modifyTag(response, pathname) {
+    // PUT tag/<oldTagName>/rename/<newTagName>
+    var p = pathname.split("/");
+    var oldTagName = decodeURIComponent(p[2]);
+    var newTagName = decodeURIComponent(p[4]);
+    console.log("modify tag", oldTagName, newTagName);
+
+    dbRequestHandler(dbops.getTagIdFromDb, newTagName, function(err, tagId) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else if(tagId)
+            respond(response, "already a tag named like that", 400);
+        else
+            checkOldTag();
+    });
+
+    function checkOldTag() {
+        dbRequestHandler(dbops.getTagIdFromDb, oldTagName, function(err, tagId) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            else if(!tagId)
+                respond(response, "unknown tag", 400);
+            else
+                modTag(tagId);
+        });
+    }
+
+    function modTag(tagId) {
+        dbRequestHandler(dbops.modifyTagInDb, tagId, newTagName, function(err) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            else
+                respond(response, {"message":"modify ok"}, 200);
+        });
+    }
+}
+
+function deleteTag(response, pathname) {
+    // DELETE tag/<tag>
+    var p = pathname.split("/");
+    var tag = decodeURIComponent(p[2]);
+    console.log("remove tag", tag);
+
+    dbRequestHandler(dbops.getTagIdFromDb,tag, function(err, tagId) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else if(!tagId)
+            respond(response, "unknown tag", 400);
+        else
+            delTag(tagId);
+    });
+
+    function delTag(tagId) {
+        dbRequestHandler(dbops.removeTagInDb, tagId, function(err) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            else
+                respond(response, {"message": "del ok"}, 200);
+        });
+    }
+}
+
+function addNewTag(response, pathname) {
+    // POST tag/<tag>
+    var p = pathname.split("/");
+    var newTag = decodeURIComponent(p[2]);
+    console.log("Add new tag", newTag);
+
+    dbRequestHandler(dbops.getTagIdFromDb, newTag, function(err, tagId) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else if(tagId)
+            respond(response, "new tag already exists", 400);
+        else
+            addNewTag();
+    });
+
+    function addNewTag() {
+        dbRequestHandler(dbops.storeNewTagInDb, newTag, function(err) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            else
+                respond(response, {"message": "add ok"}, 201);
+        });
+    }
+}
+
+function newTitleWithTag(response, pathname) {
+    // POST tag/<tag>/title/<title>
+    var p = pathname.split("/");
+    var tag = decodeURIComponent(p[2]);
+    var title = decodeURIComponent(p[4]);
+    console.log("Add new tag <-> title join", tag, title);
+
+    dbRequestHandler(dbops.getTagIdFromDb, tag, function(err, tagId) {
+        if(err)
+            respond(response, "Internal service error", 500);
+        else if(!tagId)
+            respond(response, "unknown tag", 400);
+        else
+            checkTitle(tagId);
+    });
+
+    function checkTitle(tagId) {
+        dbRequestHandler(dbops.getTitleIdFromDb, title, function(err, titleId) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            else if(!titleId)
+                respond(response, "unknown title", 400);
+            else
+                addNewTitleWithTag(tagId, titleId);
+        });
+    }
+
+    function addNewTitleWithTag(tagId, titleId) {
+        dbRequestHandler(dbops.storeTitleWithTagInDb, titleId, tagId, function(err) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            else
+                respond(response, {"message": "add join ok"}, 201);
+        });
+    }
 }
 
 function dbRequestHandler(func, ...funcArgs) {
