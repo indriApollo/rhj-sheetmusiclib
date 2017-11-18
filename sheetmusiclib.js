@@ -411,6 +411,10 @@ function modifyTag(response, pathname) {
     var p = pathname.split("/");
     var oldTagName = decodeURIComponent(p[2]);
     var newTagName = decodeURIComponent(p[4]);
+    if(newTagName.length < 2) {
+        respond(response, "tag name must be at least 2 chars", 400);
+        return;
+    }
     console.log("modify tag", oldTagName, newTagName);
 
     dbRequestHandler(dbops.getTagIdFromDb, newTagName, function(err, tagId) {
@@ -472,6 +476,10 @@ function addNewTag(response, pathname) {
     // POST tag/<tag>
     var p = pathname.split("/");
     var newTag = decodeURIComponent(p[2]);
+    if(newTag.length < 2) {
+        respond(response, "tag name must be at least 2 chars", 400);
+        return;
+    }
     console.log("Add new tag", newTag);
 
     dbRequestHandler(dbops.getTagIdFromDb, newTag, function(err, tagId) {
