@@ -51,12 +51,18 @@ module.exports = {
         });
     },
 
-    getTitlesWithTagFromDb: function(db, tag, callback) {
+    getTitlesWithTagsFromDb: function(db, tagIds, callback) {
         var result = [];
+
+        var clause = "WHERE tagId = ?";
+        for(var i = 1; i < tagIds.length; i++) {
+            clause += " OR tagId = ?";
+        }
+
         db.each("SELECT title FROM titles \
                 INNER JOIN title_tag_join ON titles.id = titleId \
-                INNER JOIN tags ON tags.id = tagId WHERE tag = ? \
-                ORDER BY title LIMIT 300", tag, function(err,row) {
+                "+clause+" \
+                ORDER BY title LIMIT 300", tagIds, function(err,row) {
             if(err) {
                 console.log(err);
                 callback(err);

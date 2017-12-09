@@ -161,13 +161,15 @@ function handlePut(url, headers, response) {
     }
     var token = headers["auth-token"];
 
-    checkToken(token, function(err, valid, userdata) {
+    checkTokenAndStatus(token, function(err, valid, status) {
         if(err)
             respond(response, "Internal service error", 500);
         else if(!valid)
             respond(response, "Unknown or expired token", 403);
+        else if(status != "admin")
+            respond(response, "You are not allowed to do this", 403);
         else {
-            if(/tag\/[\w-%]*\/rename\/[\w-%]*$/.test(pathname) )
+            if(/^\/tag\/[\w-%]*\/rename\/[\w-%]*$/.test(pathname) )
                 modifyTag(response, pathname);
             else
                 respond(response, "Unknown uri", 404);
@@ -188,13 +190,15 @@ function handleDelete(url, headers, response) {
     }
     var token = headers["auth-token"];
 
-    checkToken(token, function(err, valid, userdata) {
+    checkTokenAndStatus(token, function(err, valid, status) {
         if(err)
             respond(response, "Internal service error", 500);
         else if(!valid)
             respond(response, "Unknown or expired token", 403);
+        else if(status != "admin")
+            respond(response, "You are not allowed to do this", 403);
         else {
-            if(/tag\/[\w-%]*$/.test(pathname) )
+            if(/^\/tag\/[\w-%]*$/.test(pathname) )
                 deleteTag(response, pathname);
             else
                 respond(response, "Unknown uri", 404);
@@ -215,15 +219,17 @@ function handlePost(url, headers, response) {
     }
     var token = headers["auth-token"];
 
-    checkToken(token, function(err, valid, userdata) {
+    checkTokenAndStatus(token, function(err, valid, status) {
         if(err)
             respond(response, "Internal service error", 500);
         else if(!valid)
             respond(response, "Unknown or expired token", 403);
+        else if(status != "admin")
+            respond(response, "You are not allowed to do this", 403);
         else {
-            if(/tag\/[\w-%]*$/.test(pathname) )
+            if(/^\/tag\/[\w-%]*$/.test(pathname) )
                 addNewTag(response, pathname);
-            else if(/tag\/[\w-%]*\/title\/[\w-%]*$/.test(pathname) )
+            else if(/^\/tag\/[\w-%]*\/title\/[\w-%]*$/.test(pathname) )
                 newTitleWithTag(response, pathname);
             else
                 respond(response, "Unknown uri", 404);
@@ -255,19 +261,17 @@ function handleGET(url, headers, response) {
     }
     var token = headers["auth-token"];
 
-    checkToken(token, function(err, valid, userdata) {
+    checkTokenAndUserData(token, function(err, valid, userdata) {
         if(err)
             respond(response, "Internal service error", 500);
         else if(!valid)
             respond(response, "Unknown or expired token", 403);
         else {
             if(pathname == "/titles")
-                returnAllTitles(response);
-            else if(/titles\/[\w-%]*$/.test(pathname) )
-                returnTitlesWithTag(response, pathname);
+                handleGetTitles(response, query);
             else if(pathname == "/instruments")
                 returnAllInstruments(response);
-            else if(/sheets\/[\w-%]*$/.test(pathname) )
+            else if(/^\/sheets\/[\w-%]*$/.test(pathname) )
                 returnFilenames(response, pathname, userdata.instruments);
             else if(pathname == "/tags")
                 returnAllTags(response);
@@ -275,6 +279,20 @@ function handleGET(url, headers, response) {
                 respond(response, "Unknown uri", 404);
         }
     });
+}
+
+function handleGetTitles(response, query) {
+    var params = querystring.parse(query);
+
+    if(!params.tag)
+        returnAllTitles(response);
+    else {
+        if(typeof params.tag !== 'object') {
+            // When there is only one tag specified params.tag is a single string
+            params.tag = [params.tag]; // returnTitlesWithTags expects an array
+        }
+        returnTitlesWithTags(response, params.tag);
+    }
 }
 
 function handleDownload(response, query) {
@@ -293,14 +311,13 @@ function handleDownload(response, query) {
 
     var token = decodeURIComponent(params.token);
 
-    checkToken(token, function(err, valid, userdata) {
+    checkTokenAndUserData(token, function(err, valid, userdata) {
         if(err)
             respond(response, "Internal service error", 500);
         else if(!valid)
             respond(response, "Unknown or expired token", 403);
-        else {
+        else
             returnFile(userdata);
-        }
     });
 
     function returnFile(userdata) {
@@ -392,18 +409,39 @@ function returnAllTags(response) {
     });
 }
 
-function returnTitlesWithTag(response, pathname) {
-    // GET titles/<tag>
-    var p = pathname.split("/");
-    var tag = decodeURIComponent(p[2]);
-    console.log("Looking for titles with tag", tag);
+function returnTitlesWithTags(response, tags) {
+    // GET titles?tag=<tag1>&tag=<tag2>&...
 
-    dbRequestHandler(dbops.getTitlesWithTagFromDb, tag, function(err, titles) {
-        if(err)
-            respond(response, "Internal service error", 500);
-        else
-            respond(response, {"titles": titles}, 200);
-    });
+    var tagIds = [];
+    var index = 0;
+
+    function getTagId() {
+        console.log("Looking for titles with tag", tags[index]);
+        dbRequestHandler(dbops.getTagIdFromDb, tags[index], function(err, tagId) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            if(!tagId)
+                respond(response, "Unknown tag "+tags[index], 400);
+            else {
+                tagIds.push(tagId);
+                if(++index < tags.length)
+                    getTagId(); // recursively call ourselves
+                else
+                    getTitles();
+            }
+        });
+    }
+
+    function getTitles() {
+        dbRequestHandler(dbops.getTitlesWithTagsFromDb, tagIds, function(err, titles) {
+            if(err)
+                respond(response, "Internal service error", 500);
+            else
+                respond(response, {"titles": titles}, 200);
+        });
+    }
+
+    getTagId();
 }
 
 function modifyTag(response, pathname) {
@@ -550,7 +588,7 @@ function dbRequestHandler(func, ...funcArgs) {
     });
 }
 
-function checkToken(token, callback) {
+function checkTokenAndUserData(token, callback) {
 
     var options = {
         host: "auth.indriapollo.be",
@@ -606,10 +644,74 @@ function checkToken(token, callback) {
         else {
             var err;
             if(!json.message) err = "Unspecified error";
-            else err = json.message
+            else err = json.message;
             
             console.log(err);
             callback(err);
         }
     }
 }
+
+function checkTokenAndStatus(token, callback) {
+    
+        var options = {
+            host: "auth.indriapollo.be",
+            path: "/userstatus",
+            headers: {
+                "Auth-Token": token
+            }
+        };
+    
+        var body = [];
+    
+        https.get(options, function(response) {
+    
+            var gunzip = zlib.createGunzip();
+        
+            gunzip.on('data', function(data) {
+                body += data.toString();
+            }).on('end', function() {
+                handleResponse(response.statusCode, body);
+            }).on('error', function(err) {
+                console.log("Token gunzip error. Remote auth service might be down")
+                callback(err)
+            });
+        
+            response.pipe(gunzip);
+          
+        }).on('error', function(err) {
+            console.log(err);
+            callback(err);
+        });
+    
+        function handleResponse(statusCode, jsonString) {
+            try {
+                var json = JSON.parse(jsonString);
+            }
+            catch(err) {
+                console.log(err);
+                callback(err);
+                return;
+            }
+    
+            if(statusCode == 200) {
+                if(!json.status) {
+                    err = "Missing status property from userstatus";
+                    console.log(err);
+                    callback(err);
+                } else {
+                    callback(null, true, json.status);
+                }
+            }
+            else if(statusCode == 403)
+                callback(null, false);
+            else {
+                var err;
+                if(!json.message) err = "Unspecified error";
+                else err = json.message;
+                
+                console.log(err);
+                callback(err);
+            }
+        }
+    }
