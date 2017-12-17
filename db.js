@@ -127,7 +127,7 @@ Db.prototype.getTagIdFromDb = function(tag, callback) {
     });
 }
 
-Db.prototype.storeTitleWithTagInDb = function(titleId, tagId, callback) {
+Db.prototype.storeTagOfTitleJoinInDb = function(tagId, titleId, callback) {
     
     this.db.run("INSERT INTO title_tag_join(titleId, tagId) VALUES(?,?)", titleId, tagId, function(err) {
         if(!err && this.changes !== 1) err = this.sql+" was run successfully but made no changes";
@@ -136,7 +136,7 @@ Db.prototype.storeTitleWithTagInDb = function(titleId, tagId, callback) {
     });
 }
 
-Db.prototype.removeTitleWithTagInDb = function(title, tag, callback) {
+Db.prototype.removeTagOfTitleJoinInDb = function(tag, title, callback) {
     
     this.db.run("DELETE FROM title_tag_join WHERE titleId = ? AND tagId = ?", titleId, tagId, function(err) {
         if(err) console.log(err);

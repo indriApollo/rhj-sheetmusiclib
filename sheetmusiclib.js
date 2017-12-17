@@ -9,6 +9,7 @@ const querystring = require('querystring');
 const conf = require("./configloader.js");
 const common = require("./common.js");
 const httpGetHandler = require("./httpGetHandler.js")
+const httpPostHandler = require("./httpPostHandler.js")
 
 console.log("Loading config ...");
 conf.load();
@@ -42,11 +43,11 @@ http.createServer(function(request, response) {
                 httpGetHandler(conf, pathname, query, headers, response);
                 break;
 
-            /*case 'POST':
-                handlePost(url, headers, response);
+            case 'POST':
+                httpPostHandler(conf, pathname, query, headers, response);
                 break;
 
-            case 'PUT':
+            /*case 'PUT':
                 handlePut(url, headers, response);
                 break;
                 
@@ -143,38 +144,6 @@ function handleCORS(response) {
     });
 }*/
 
-/*function handlePost(url, headers, response) {
-
-    url = urlHelper.parse(url);
-    var pathname = url.pathname;
-    var query = url.query;
-
-    console.log("POST request for "+pathname);
-
-    if(!headers["auth-token"]) {
-        common.respond(response, "Missing Auth-Token header", 400);
-        return;
-    }
-    var token = headers["auth-token"];
-
-    common.checkTokenAndStatus(token,"status", function(err, valid, status) {
-        if(err)
-            common.respond(response, "Internal service error", 500);
-        else if(!valid)
-            common.respond(response, "Unknown or expired token", 403);
-        else if(status != "admin")
-            common.respond(response, "You are not allowed to do this", 403);
-        else {
-            if(/^\/tags\/[\w-%]*$/.test(pathname) )
-                addNewTag(response, pathname);
-            else if(/^\/titles\/[\w-%]*$/.test(pathname))
-                newTitleWithTag(response, pathname, query);
-            else
-                common.respond(response, "Unknown uri", 404);
-        }
-    });
-}*/
-
 /*function modifyTag(response, pathname) {
     // PUT tag/<oldTagName>/rename/<newTagName>
     var p = decodeURIComponent(pathname).split("/");
@@ -241,74 +210,3 @@ function handleCORS(response) {
     }
 }*/
 
-/*function addNewTag(response, pathname) {
-    // POST tag/<tag>
-    var p = pathname.split("/");
-    var newTag = decodeURIComponent(p[2]);
-    if(newTag.length < 2) {
-        common.respond(response, "tag name must be at least 2 chars", 400);
-        return;
-    }
-    console.log("Add new tag", newTag);
-
-    dbRequestHandler(dbops.getTagIdFromDb, newTag, function(err, tagId) {
-        if(err)
-            common.respond(response, "Internal service error", 500);
-        else if(tagId)
-            common.respond(response, "new tag already exists", 400);
-        else
-            addNewTag();
-    });
-
-    function addNewTag() {
-        dbRequestHandler(dbops.storeNewTagInDb, newTag, function(err) {
-            if(err)
-                common.respond(response, "Internal service error", 500);
-            else
-                common.respond(response, {"message": "add ok"}, 201);
-        });
-    }
-}*/
-
-/*function newTitleWithTag(response, pathname, query) {
-    // POST /titles/<title>?tag=<tag>
-    var p = decodeURIComponent(pathname).split("/");
-    var title = p[2];
-
-    var params = querystring.parse(query);
-    if(!params.tag) {
-        common.respond(response, "Missing tag parameter", 400);
-        return;
-    }
-
-    console.log("Add new tag <-> title join", params.tag, title);
-
-    dbRequestHandler(dbops.getTagIdFromDb, params.tag, function(err, tagId) {
-        if(err)
-            common.respond(response, "Internal service error", 500);
-        else if(!tagId)
-            common.respond(response, "unknown tag", 400);
-        else
-            checkTitle(tagId);
-    });
-
-    function checkTitle(tagId) {
-        dbRequestHandler(dbops.getTitleIdFromDb, title, function(err, titleId) {
-            if(err)
-                common.respond(response, "Internal service error", 500);
-            else if(!titleId)
-                common.respond(response, "unknown title", 400);
-            else
-                addNewTitleWithTag(tagId, titleId);
-        });
-    }
-
-    function addNewTitleWithTag(tagId, titleId) {
-        dbRequestHandler(dbops.storeTitleWithTagInDb, titleId, tagId, function(err) {
-            if(err)
-                common.respond(response, "Internal service error", 500);
-            else
-                common.respond(response, {"message": "add join ok"}, 201);
-        });
-    }
-}*/

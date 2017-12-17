@@ -1,5 +1,4 @@
 const cm = require("./common.js");
-const urlHelper = require('url');
 const pathHelper = require('path');
 const querystring = require('querystring');
 const fs = require("fs");
@@ -137,6 +136,30 @@ Handler.prototype.returnTitlesWithTags = function(tags) {
     getTagId();
 }
 
+Handler.prototype.returnTagsOfTitle = function(title) {
+    // GET titles/<title>
+    var handler = this;
+
+    handler.openDb();
+    handler.db.getTitleIdFromDb(title, function(err, titleId) {
+        if(err)
+            handler.respond("Internal service error", 500);
+        else if(!titleId)
+            handler.respond("unknown title", 400);
+        else
+            returnTags(titleId);
+    });
+
+    function returnTags(titleId) {
+        handler.db.getTagsOfTitleFromDb(title, function(err, tags) {
+            if(err)
+                handler.respond("Internal service error", 500);
+            else
+                handler.respond({"tags": tags}, 200);
+        });
+    }
+}
+
 Handler.prototype.titles = function() {
     var p = this.pathname.split("/");
     var title = p[2];
@@ -153,6 +176,10 @@ Handler.prototype.titles = function() {
             this.returnTitlesWithTags(params.tag);
         }
     }
+    else if(title)
+        this.returnTagsOfTitle(title);
+    else
+        this.respond("Missing title", 400);
 }
 
 Handler.prototype.getFilenames = function(instruments, title, callback) {
@@ -312,13 +339,13 @@ function httpGetHandler(conf, pathname, query, headers, response) {
         if(pathname == "/download")
             handler.download(response, query);
 
-        else if(/^\/titles(\/[\w-%]*)?$/.test(pathname) )
+        else if(/^\/titles(\/[\w-]*)?$/.test(pathname) )
             handler.titles();
 
         else if(pathname == "/instruments")
-            handler.returnAllInstruments(response);
+            handler.returnAllInstruments();
 
-        else if(/^\/sheets\/[\w-%]*$/.test(pathname) )
+        else if(/^\/sheets\/[\w-]*$/.test(pathname) )
             handler.returnFilenames(userdata.instruments);
 
         else if(pathname == "/tags")

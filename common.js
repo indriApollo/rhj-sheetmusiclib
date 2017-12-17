@@ -35,7 +35,7 @@ module.exports = {
 
     checkToken: function(headers, returnValue, callback) {
 
-        if(returnValue != "status" && returnValue != "userdata") {
+        if(returnValue != "userstatus" && returnValue != "userdata") {
             throw "Unknown returnValue "+returnValue+" for checkToken";
         }
 
@@ -77,11 +77,13 @@ module.exports = {
         });
     
         function handleResponse(statusCode, jsonString) {
+            console.log("auth: http response", statusCode);
+
             try {
                 var json = JSON.parse(jsonString);
             }
             catch(err) {
-                console.log(err);
+                console.log("auth:", err);
                 callback(err);
                 return;
             }
@@ -89,9 +91,9 @@ module.exports = {
             if(statusCode == 200) {
                 switch(returnValue) {
                 // handle status
-                case "status":
+                case "userstatus":
                     if(!json.status) {
-                        err = "Missing status property from userstatus";
+                        err = "auth: Missing status property from userstatus";
                         console.log(err);
                         callback(err);
                     } else {
@@ -101,7 +103,7 @@ module.exports = {
                 // handle userdata
                 case "userdata":
                     if(!json.instruments) {
-                        err = "Missing instruments property from userdata";
+                        err = "auth: Missing instruments property from userdata";
                         console.log(err);
                         callback(err);
                     } else {
@@ -114,8 +116,8 @@ module.exports = {
                 callback(null, false);
             else {
                 var err;
-                if(!json.message) err = "Unspecified error";
-                else err = json.message;
+                if(!json.message) err = "auth: Unspecified error";
+                else err = "auth: "+json.message;
                 
                 console.log(err);
                 callback(err);
