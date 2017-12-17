@@ -4,6 +4,7 @@ const pathHelper = require('path');
 const querystring = require('querystring');
 const fs = require("fs");
 const Db = require("./db.js");
+const glob = require("glob");
 
 function Handler(conf, pathname, query, response) {
     this.conf = conf;
@@ -184,18 +185,19 @@ Handler.prototype.getFilenames = function(instruments, title, callback) {
 
 Handler.prototype.returnFilenames = function(instruments) {
     // GET sheets/<title>
-
-    var p = this.pathname.split("/");
+    var handler = this;
+    var p = handler.pathname.split("/");
     var title = p[2];
 
     console.log("Looking for title", title);
 
-    this.getFilenames(instruments, title, function(err, files) {
+    handler.getFilenames(instruments, title, function(err, files) {
         if(err) {
             console.log("Could not return filenames", err);
-            this.respond("Internal service error", 500);
+            handler.respond("Internal service error", 500);
         }
-        this.respond({"sheets": files}, 200);
+        else
+            handler.respond({"sheets": files}, 200);
     });
 }
 
@@ -286,11 +288,26 @@ function httpGetHandler(conf, pathname, query, headers, response) {
         else if(!valid)
             handler.respond("Unknown or expired token", 403);
         else {
-            routes()
+            routes(userdata)
         }
     });
 
-    function routes() {
+    function routes(userdata) {
+
+        /*
+         * /download?file=<file>
+         * 
+         * /titles
+         * /titles?tag=<tag>
+         * /titles/<title>
+         * 
+         * /instruments
+         * 
+         * /sheets/<title>
+         * 
+         * /tags
+         * 
+         */
 
         if(pathname == "/download")
             handler.download(response, query);

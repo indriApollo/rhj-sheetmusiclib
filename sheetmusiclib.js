@@ -6,7 +6,6 @@ const sqlite3 = require('sqlite3');
 const urlHelper = require('url');
 const pathHelper = require('path');
 const querystring = require('querystring');
-const glob = require("glob");
 const conf = require("./configloader.js");
 const common = require("./common.js");
 const httpGetHandler = require("./httpGetHandler.js")
