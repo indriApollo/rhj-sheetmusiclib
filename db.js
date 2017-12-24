@@ -136,9 +136,9 @@ Db.prototype.storeTagOfTitleJoinInDb = function(tagId, titleId, callback) {
     });
 }
 
-Db.prototype.removeTagOfTitleJoinInDb = function(tag, title, callback) {
+Db.prototype.removeTagOfTitleJoinInDb = function(tagId, titleId, callback) {
     
-    this.db.run("DELETE FROM title_tag_join WHERE titleId = ? AND tagId = ?", titleId, tagId, function(err) {
+    this.db.run("DELETE FROM title_tag_join WHERE tagId = ? AND titleId = ?", tagId, titleId, function(err) {
         if(err) console.log(err);
             callback(err);
     });
@@ -154,10 +154,10 @@ Db.prototype.modifyTagInDb = function(tagId, newTagName, callback) {
 }
 
 Db.prototype.removeTagInDb = function(tagId, callback) {
-    
+    var that = this;    
 
     function rollbackTx() {
-        this.db.exec("ROLLBACK", function(err) {
+        that.db.exec("ROLLBACK", function(err) {
             if(err) console.log(err);
             console.log("rolled back faulty query");
             callback(true);
@@ -165,7 +165,7 @@ Db.prototype.removeTagInDb = function(tagId, callback) {
     }
     
     function beginTx() {
-        this.db.exec("BEGIN", function(err) {
+        that.db.exec("BEGIN", function(err) {
             if(err) {
                 console.log(err);
                 callback(err);
@@ -176,7 +176,7 @@ Db.prototype.removeTagInDb = function(tagId, callback) {
     }
     
     function deleteTagTx() {
-        this.db.run("DELETE FROM tags WHERE id = ?", tagId, function(err) {
+        that.db.run("DELETE FROM tags WHERE id = ?", tagId, function(err) {
             if(err) {
                 console.log(err);
                 rollbackTx();
@@ -187,7 +187,7 @@ Db.prototype.removeTagInDb = function(tagId, callback) {
     }
     
     function deleteTagJoinsTx() {
-        this.db.run("DELETE FROM title_tag_join WHERE tagId = ?", tagId, function(err) {
+        that.db.run("DELETE FROM title_tag_join WHERE tagId = ?", tagId, function(err) {
             if(err) {
                 console.log(err);
                 rollbackTx();
@@ -198,7 +198,7 @@ Db.prototype.removeTagInDb = function(tagId, callback) {
     }
     
     function commitTx() {
-        this.db.exec("COMMIT", function(err) {
+        that.db.exec("COMMIT", function(err) {
             if(err) {
                 console.log(err);
                 callback(err);

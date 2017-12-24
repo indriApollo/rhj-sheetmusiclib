@@ -72,7 +72,7 @@ Handler.prototype.modifyTag = function(response, pathname) {
 
 function httpPutHandler(conf, pathname, query, headers, response) {
 
-    console.log("PUT request for "+pathname);
+    console.log("PUT request for", pathname);
 
     var handler = new Handler(conf, pathname, query, response);
 
@@ -85,10 +85,10 @@ function httpPutHandler(conf, pathname, query, headers, response) {
         else if(status != "admin")
             handler.respond("You are not allowed to do this", 403);
         else
-            routes(status);
+            routes();
     });
 
-    function routes(status) {
+    function routes() {
 
         /*
          * /tags/<tag>?newtagname=<new tag name>

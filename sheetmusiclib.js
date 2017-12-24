@@ -11,6 +11,7 @@ const common = require("./common.js");
 const httpGetHandler = require("./httpGetHandler.js")
 const httpPostHandler = require("./httpPostHandler.js")
 const httpPutHandler = require("./httpPutHandler.js")
+const httpDeleteHandler = require("./httpDeleteHandler.js")
 
 console.log("Loading config ...");
 conf.load();
@@ -52,9 +53,9 @@ http.createServer(function(request, response) {
                 httpPutHandler(conf, pathname, query, headers, response);
                 break;
                 
-            /*case 'DELETE':
-                handleDelete(url, headers, response);
-                break;*/
+            case 'DELETE':
+                httpDeleteHandler(conf, pathname, query, headers, response);
+                break;
     
             case 'OPTIONS':
                 handleCORS(response);
@@ -86,58 +87,3 @@ function handleCORS(response) {
     response.setHeader('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
     response.end();
 }
-
-/*function handleDelete(url, headers, response) {
-    
-    url = urlHelper.parse(url);
-    var pathname = url.pathname;
-
-    console.log("DELETE request for "+pathname);
-
-    if(!headers["auth-token"]) {
-        common.respond(response, "Missing Auth-Token header", 400);
-        return;
-    }
-    var token = headers["auth-token"];
-
-    common.checkToken(token, "status",function(err, valid, status) {
-        if(err)
-            common.respond(response, "Internal service error", 500);
-        else if(!valid)
-            common.respond(response, "Unknown or expired token", 403);
-        else if(status != "admin")
-            common.respond(response, "You are not allowed to do this", 403);
-        else {
-            if(/^\/tag\/[\w-%]*$/.test(pathname) )
-                deleteTag(response, pathname);
-            else
-                common.respond(response, "Unknown uri", 404);
-        }
-    });
-}*/
-
-/*function deleteTag(response, pathname) {
-    // DELETE tag/<tag>
-    var p = decodeURIComponent(pathname).split("/");
-    var tag = p[2];
-    console.log("remove tag", tag);
-
-    dbRequestHandler(dbops.getTagIdFromDb,tag, function(err, tagId) {
-        if(err)
-            common.respond(response, "Internal service error", 500);
-        else if(!tagId)
-            common.respond(response, "unknown tag", 400);
-        else
-            delTag(tagId);
-    });
-
-    function delTag(tagId) {
-        dbRequestHandler(dbops.removeTagInDb, tagId, function(err) {
-            if(err)
-                common.respond(response, "Internal service error", 500);
-            else
-                common.respond(response, {"message": "del ok"}, 200);
-        });
-    }
-}*/
-

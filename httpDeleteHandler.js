@@ -19,41 +19,37 @@ Handler.prototype.respond = function(data, status) {
     cm.respond(this.response, data, status);
 }
 
-Handler.prototype.addNewTag = function() {
-    // POST tags/<tag>
+Handler.prototype.deleteTag = function() {
+    // DELETE tags/<tag>
     var handler = this;
 
     var p = handler.pathname.split("/");
-    var newTag = p[2];
-    if(newTag.length < 2) {
-        handler.respond("Tag name must be at least 2 chars", 400);
-        return;
-    }
+    var tag = p[2];
 
-    console.log("Add new tag", newTag);
+    console.log("Remove tag", tag);
 
     handler.openDb();
-    handler.db.getTagIdFromDb(newTag, function(err, tagId) {
+    handler.db.getTagIdFromDb(tag, function(err, tagId) {
         if(err)
             handler.respond("Internal service error", 500);
-        else if(tagId)
-            handler.respond("Tag already exists", 400);
+        else if(!tagId)
+            handler.respond("Unknown tag", 400);
         else
-            addNewTag();
+            delTag(tagId);
     });
 
-    function addNewTag() {
-        handler.db.storeNewTagInDb(newTag, function(err) {
+    function delTag(tagId) {
+        handler.db.removeTagInDb(tagId, function(err) {
             if(err)
                 handler.respond("Internal service error", 500);
             else
-                handler.respond({"message": "add ok"}, 201);
+                handler.respond({"message": "del ok"}, 200);
         });
     }
 }
 
-Handler.prototype.addTagToTitle = function() {
-    // POST /titles/<title>?tag=<tag>
+Handler.prototype.deleteTagOfTitleJoin = function() {
+    // DELETE /titles/<title>?tag=<tag to remove>
     var handler = this;
 
     var p = handler.pathname.split("/");
@@ -66,11 +62,11 @@ Handler.prototype.addTagToTitle = function() {
     }
 
     if(typeof params.tag === 'object') {
-        handler.respond("Please post a single tag", 400);
+        handler.respond("Please delete a single tag", 400);
         return;
     }
 
-    console.log("Add new tag <-> title join", params.tag, title);
+    console.log("Delete tag from title", params.tag, title);
 
     handler.openDb();
     handler.db.getTagIdFromDb(params.tag, function(err, tagId) {
@@ -97,31 +93,30 @@ Handler.prototype.addTagToTitle = function() {
         handler.db.getTagsOfTitleFromDb(title, function(err, tags) {
             if(err)
                 handler.respond("Internal service error", 500);
-            else if(tags.indexOf(params.tag) !== -1)
-                handler.respond("Title tag join already exists", 400);
+            else if(tags.indexOf(params.tag) === -1)
+                handler.respond("Title tag join doesn't exist", 400);
             else
-                addNewTagToTitle(tagId, titleId);
+                removeTagFromTitle(tagId, titleId);
         });
     }
 
-    function addNewTagToTitle(tagId, titleId) {
-        handler.db.storeTagOfTitleJoinInDb(tagId, titleId, function(err) {
+    function removeTagFromTitle(tagId, titleId) {
+        handler.db.removeTagOfTitleJoinInDb(tagId, titleId, function(err) {
             if(err)
                 handler.respond("Internal service error", 500);
             else
-                handler.respond({"message": "add join ok"}, 201);
+                handler.respond({"message": "del join ok"}, 200);
         });
     }
 }
 
-function httpPostHandler(conf, pathname, query, headers, response) {
-
-    console.log("POST request for" ,pathname);
+function httpDeleteHandler(conf, pathname, query, headers, response) {
+    
+    console.log("DELETE request for", pathname);
 
     var handler = new Handler(conf, pathname, query, response);
 
-    cm.checkToken(headers ,"userstatus", function(err, valid, status) {
-
+    cm.checkToken(headers, "userstatus", function(err, valid, status) {
         if(err)
             handler.respond("Internal service error", 500);
         else if(!valid)
@@ -135,22 +130,21 @@ function httpPostHandler(conf, pathname, query, headers, response) {
     function routes() {
 
         /*
-         * /tags/<newtag>
+         * /tags/<tag>
          * 
-         * /titles/<title>?tag=<newtag>
+         * /titles/<title>?tag=<tag to remove>
          * 
          */
 
         if(/^\/tags\/[\w-]*$/.test(pathname) )
-            handler.addNewTag();
+            handler.deleteTag();
 
         else if(/^\/titles\/[\w-]*$/.test(pathname))
-            handler.addTagToTitle();
-
+            handler.deleteTagOfTitleJoin();
+        
         else
             handler.respond("Unknown uri", 404);
-
     }
 }
 
-module.exports = httpPostHandler;
+module.exports = httpDeleteHandler;

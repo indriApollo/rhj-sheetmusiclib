@@ -298,7 +298,7 @@ Handler.prototype.download = function() {
 
 function httpGetHandler(conf, pathname, query, headers, response) {
 
-    console.log("GET request for "+pathname);
+    console.log("GET request for", pathname);
 
     var handler = new Handler(conf, pathname, query, response);
 
