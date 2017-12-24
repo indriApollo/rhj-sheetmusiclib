@@ -10,6 +10,7 @@ const conf = require("./configloader.js");
 const common = require("./common.js");
 const httpGetHandler = require("./httpGetHandler.js")
 const httpPostHandler = require("./httpPostHandler.js")
+const httpPutHandler = require("./httpPutHandler.js")
 
 console.log("Loading config ...");
 conf.load();
@@ -20,7 +21,7 @@ http.createServer(function(request, response) {
     var method = request.method;
     var url = urlHelper.parse(decodeURIComponent(request.url));
     var pathname = url.pathname;
-    var query = url.query;
+    var query = querystring.parse(url.query);
 
     var body = [];
     
@@ -47,11 +48,11 @@ http.createServer(function(request, response) {
                 httpPostHandler(conf, pathname, query, headers, response);
                 break;
 
-            /*case 'PUT':
-                handlePut(url, headers, response);
+            case 'PUT':
+                httpPutHandler(conf, pathname, query, headers, response);
                 break;
                 
-            case 'DELETE':
+            /*case 'DELETE':
                 handleDelete(url, headers, response);
                 break;*/
     
@@ -86,35 +87,6 @@ function handleCORS(response) {
     response.end();
 }
 
-/*function handlePut(url, headers, response) {
-
-    url = urlHelper.parse(url);
-    var pathname = url.pathname;
-
-    console.log("PUT request for "+pathname);
-
-    if(!headers["auth-token"]) {
-        common.respond(response, "Missing Auth-Token header", 400);
-        return;
-    }
-    var token = headers["auth-token"];
-
-    common.checkToken(token, "status", function(err, valid, status) {
-        if(err)
-            common.respond(response, "Internal service error", 500);
-        else if(!valid)
-            common.respond(response, "Unknown or expired token", 403);
-        else if(status != "admin")
-            common.respond(response, "You are not allowed to do this", 403);
-        else {
-            if(/^\/tag\/[\w-%]*\/rename\/[\w-%]*$/.test(pathname) )
-                modifyTag(response, pathname);
-            else
-                common.respond(response, "Unknown uri", 404);
-        }
-    });
-}*/
-
 /*function handleDelete(url, headers, response) {
     
     url = urlHelper.parse(url);
@@ -142,47 +114,6 @@ function handleCORS(response) {
                 common.respond(response, "Unknown uri", 404);
         }
     });
-}*/
-
-/*function modifyTag(response, pathname) {
-    // PUT tag/<oldTagName>/rename/<newTagName>
-    var p = decodeURIComponent(pathname).split("/");
-    var oldTagName = p[2];
-    var newTagName = p[4];
-    if(newTagName.length < 2) {
-        common.respond(response, "tag name must be at least 2 chars", 400);
-        return;
-    }
-    console.log("modify tag", oldTagName, newTagName);
-
-    dbRequestHandler(dbops.getTagIdFromDb, newTagName, function(err, tagId) {
-        if(err)
-            common.respond(response, "Internal service error", 500);
-        else if(tagId)
-            common.respond(response, "already a tag named like that", 400);
-        else
-            checkOldTag();
-    });
-
-    function checkOldTag() {
-        dbRequestHandler(dbops.getTagIdFromDb, oldTagName, function(err, tagId) {
-            if(err)
-                common.respond(response, "Internal service error", 500);
-            else if(!tagId)
-                common.respond(response, "unknown tag", 400);
-            else
-                modTag(tagId);
-        });
-    }
-
-    function modTag(tagId) {
-        dbRequestHandler(dbops.modifyTagInDb, tagId, newTagName, function(err) {
-            if(err)
-                common.respond(response, "Internal service error", 500);
-            else
-                common.respond(response, {"message":"modify ok"}, 200);
-        });
-    }
 }*/
 
 /*function deleteTag(response, pathname) {

@@ -1,6 +1,5 @@
 const cm = require("./common.js");
 const pathHelper = require('path');
-const querystring = require('querystring');
 const fs = require("fs");
 const Db = require("./db.js");
 const glob = require("glob");
@@ -145,7 +144,7 @@ Handler.prototype.returnTagsOfTitle = function(title) {
         if(err)
             handler.respond("Internal service error", 500);
         else if(!titleId)
-            handler.respond("unknown title", 400);
+            handler.respond("Unknown title", 400);
         else
             returnTags(titleId);
     });
@@ -163,7 +162,7 @@ Handler.prototype.returnTagsOfTitle = function(title) {
 Handler.prototype.titles = function() {
     var p = this.pathname.split("/");
     var title = p[2];
-    var params = querystring.parse(this.query);
+    var params = this.query;
 
     if(this.pathname == "/titles") {
         if(!params.tag)
@@ -230,7 +229,7 @@ Handler.prototype.returnFilenames = function(instruments) {
 
 Handler.prototype.download = function() {
     
-    var params = querystring.parse(this.query);
+    var params = this.query;
     // check if file param is a valid pdf filename
     if(!params.file || !(/^[\w\-]+\.pdf$/gi.test(params.file)) ) {
         this.respond("Missing file param", 400);
@@ -314,9 +313,8 @@ function httpGetHandler(conf, pathname, query, headers, response) {
             handler.respond("Internal service error", 500);
         else if(!valid)
             handler.respond("Unknown or expired token", 403);
-        else {
+        else
             routes(userdata)
-        }
     });
 
     function routes(userdata) {

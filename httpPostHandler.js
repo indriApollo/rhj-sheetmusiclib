@@ -1,5 +1,4 @@
 const cm = require("./common.js");
-const querystring = require('querystring');
 const Db = require("./db.js");
 
 function Handler(conf, pathname, query, response) {
@@ -27,7 +26,7 @@ Handler.prototype.addNewTag = function() {
     var p = handler.pathname.split("/");
     var newTag = p[2];
     if(newTag.length < 2) {
-        handler.respond("tag name must be at least 2 chars", 400);
+        handler.respond("Tag name must be at least 2 chars", 400);
         return;
     }
 
@@ -38,7 +37,7 @@ Handler.prototype.addNewTag = function() {
         if(err)
             handler.respond("Internal service error", 500);
         else if(tagId)
-            handler.respond("tag already exists", 400);
+            handler.respond("Tag already exists", 400);
         else
             addNewTag();
     });
@@ -60,7 +59,7 @@ Handler.prototype.addTagToTitle = function() {
     var p = handler.pathname.split("/");
     var title = p[2];
 
-    var params = querystring.parse(handler.query);
+    var params = handler.query;
     if(!params.tag) {
         handler.respond("Missing tag parameter", 400);
         return;
@@ -78,7 +77,7 @@ Handler.prototype.addTagToTitle = function() {
         if(err)
             handler.respond("Internal service error", 500);
         else if(!tagId)
-            handler.respond("unknown tag", 400);
+            handler.respond("Unknown tag", 400);
         else
             checkTitle(tagId);
     });
@@ -88,7 +87,7 @@ Handler.prototype.addTagToTitle = function() {
             if(err)
                 handler.respond("Internal service error", 500);
             else if(!titleId)
-                handler.respond("unknown title", 400);
+                handler.respond("Unknown title", 400);
             else
                 checkJoin(tagId, titleId);
         });
@@ -99,7 +98,7 @@ Handler.prototype.addTagToTitle = function() {
             if(err)
                 handler.respond("Internal service error", 500);
             else if(tags.indexOf(params.tag) !== -1)
-                handler.respond("title tag join already exists", 400);
+                handler.respond("Title tag join already exists", 400);
             else
                 addNewTagToTitle(tagId, titleId);
         });
@@ -129,9 +128,8 @@ function httpPostHandler(conf, pathname, query, headers, response) {
             handler.respond("Unknown or expired token", 403);
         else if(status != "admin")
             handler.respond("You are not allowed to do this", 403);
-        else {
+        else
             routes(status);
-        }
     });
 
     function routes(status) {
