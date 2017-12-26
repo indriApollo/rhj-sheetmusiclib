@@ -2,12 +2,11 @@
 
 const fs = require("fs");
 const http = require('http'); // no https for server because we are behind a proxy
-const sqlite3 = require('sqlite3');
 const urlHelper = require('url');
-const pathHelper = require('path');
 const querystring = require('querystring');
 const conf = require("./configloader.js");
 const common = require("./common.js");
+
 const httpGetHandler = require("./httpGetHandler.js")
 const httpPostHandler = require("./httpPostHandler.js")
 const httpPutHandler = require("./httpPutHandler.js")

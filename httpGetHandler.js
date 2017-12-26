@@ -227,73 +227,58 @@ Handler.prototype.returnFilenames = function(instruments) {
     });
 }
 
-Handler.prototype.download = function() {
+Handler.prototype.download = function(instruments) {
     
     var params = this.query;
     // check if file param is a valid pdf filename
-    if(!params.file || !(/^[\w\-]+\.pdf$/gi.test(params.file)) ) {
+    if(!params.file || !(/^[\w-]+\.pdf$/gi.test(params.file)) ) {
         this.respond("Missing file param", 400);
         return;
     }
 
-    cm.checkToken(token, "userdata", function(err, valid, userdata) {
-        if(err)
-            this.respond("Internal service error", 500);
-        else if(!valid)
-            this.respond("Unknown or expired token", 403);
-        else
-            returnFile(userdata);
-    });
-
-    function returnFile(userdata) {
-        // <title>_<instrument><_*>.pdf
-        var parsedFilename = params.file.split("_");
-        try {
-            var title = parsedFilename[0];
-            var instrument = pathHelper.basename(parsedFilename[1], '.pdf');
-            if(userdata.instruments.indexOf(instrument) == -1) {
-                throw "Instrument not in userdata";
-            }
+    // <title>_<instrument><_*>.pdf
+    var parsedFilename = params.file.split("_");
+    try {
+        var title = parsedFilename[0];
+        var instrument = pathHelper.basename(parsedFilename[1], ".pdf");
+        if(instruments.indexOf(instrument) == -1) {
+            throw "Instrument not in userdata";
         }
-        catch(err) {
-            console.log("Could not return file", err);
-            this.respond(response, "You do not have access to this file", 403);
-        }
-        respondWithPdf(title+"/"+params.file, params.file);
+    }
+    catch(err) {
+        console.log("Could not return file", err);
+        this.respond(response, "You do not have access to this file", 403);
     }
 
-    function respondWithPdf(filepath, filename) {
-
-        var path = this.conf.get("SHEET_PATH")+filepath;
-        console.log("Streaming", path);
+    var path = this.conf.get("SHEET_PATH")+title+"/"+params.file;
+    console.log("Streaming", path);
     
-        fs.stat(path, function(err, stats) {
+    fs.stat(path, function(err, stats) {
     
-            if(err) {
-                console.log("Could not get file stats", err);
-                this.respond("You do not have access to this file", 403);
-                return;
-            }
+        if(err) {
+            console.log("Could not get file stats", err);
+            this.respond("You do not have access to this file", 403);
+            return;
+        }
     
-            this.response.setHeader('Access-Control-Allow-Origin', '*');
-            this.response.setHeader('Content-Type', 'application/pdf');
-            this.response.setHeader('Content-Length',stats.size);
-            this.response.setHeader('Content-Disposition','attachment; filename="'+filename+'"');
+        this.response.setHeader('Access-Control-Allow-Origin', '*');
+        this.response.setHeader('Content-Type', 'application/pdf');
+        this.response.setHeader('Content-Length',stats.size);
+        this.response.setHeader('Content-Disposition','attachment; filename="'+filename+'"');
     
-            var rs = fs.createReadStream(path);
+        var rs = fs.createReadStream(path);
             
-            rs.on('close', function() {
-                this.response.statusCode = 200;
-                this.response.end();
-            }).on('error', function(err) {
-                this.response.statusCode = 403;
-                console.log("Failed to stream pdf to client",err);
-                this.response.end();
-            });
-        
-            rs.pipe(response);
+        rs.on('close', function() {
+            this.response.statusCode = 200;
+            this.response.end();
+        }).on('error', function(err) {
+            this.response.statusCode = 403;
+            console.log("Failed to stream pdf to client",err);
+            this.response.end();
         });
-    }
+        
+        rs.pipe(this.response);
+    });
 }
 
 function httpGetHandler(conf, pathname, query, headers, response) {
@@ -335,7 +320,7 @@ function httpGetHandler(conf, pathname, query, headers, response) {
          */
 
         if(pathname == "/download")
-            handler.download(response, query);
+            handler.download(userdata.instruments);
 
         else if(/^\/titles(\/[\w-]*)?$/.test(pathname) )
             handler.titles();
