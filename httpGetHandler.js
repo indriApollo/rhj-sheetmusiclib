@@ -228,11 +228,11 @@ Handler.prototype.returnFilenames = function(instruments) {
 }
 
 Handler.prototype.download = function(instruments) {
-    
-    var params = this.query;
+    var handler = this;
+    var params = handler.query;
     // check if file param is a valid pdf filename
     if(!params.file || !(/^[\w-]+\.pdf$/gi.test(params.file)) ) {
-        this.respond("Missing file param", 400);
+        handler.respond("Missing file param", 400);
         return;
     }
 
@@ -247,37 +247,37 @@ Handler.prototype.download = function(instruments) {
     }
     catch(err) {
         console.log("Could not return file", err);
-        this.respond(response, "You do not have access to this file", 403);
+        handler.respond(response, "You do not have access to this file", 403);
     }
 
-    var path = this.conf.get("SHEET_PATH")+title+"/"+params.file;
+    var path = handler.conf.get("SHEET_PATH")+title+"/"+params.file;
     console.log("Streaming", path);
     
     fs.stat(path, function(err, stats) {
     
         if(err) {
             console.log("Could not get file stats", err);
-            this.respond("You do not have access to this file", 403);
+            handler.respond("You do not have access to this file", 403);
             return;
         }
     
-        this.response.setHeader('Access-Control-Allow-Origin', '*');
-        this.response.setHeader('Content-Type', 'application/pdf');
-        this.response.setHeader('Content-Length',stats.size);
-        this.response.setHeader('Content-Disposition','attachment; filename="'+filename+'"');
+        handler.response.setHeader('Access-Control-Allow-Origin', '*');
+        handler.response.setHeader('Content-Type', 'application/pdf');
+        handler.response.setHeader('Content-Length',stats.size);
+        handler.response.setHeader('Content-Disposition','attachment; filename="'+params.file+'"');
     
         var rs = fs.createReadStream(path);
             
         rs.on('close', function() {
-            this.response.statusCode = 200;
-            this.response.end();
+            handler.response.statusCode = 200;
+            handler.response.end();
         }).on('error', function(err) {
-            this.response.statusCode = 403;
+            handler.response.statusCode = 403;
             console.log("Failed to stream pdf to client",err);
-            this.response.end();
+            handler.response.end();
         });
         
-        rs.pipe(this.response);
+        rs.pipe(handler.response);
     });
 }
 
