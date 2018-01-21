@@ -242,12 +242,12 @@ Handler.prototype.download = function(instruments) {
         var title = parsedFilename[0];
         var instrument = pathHelper.basename(parsedFilename[1], ".pdf");
         if(instruments.indexOf(instrument) == -1) {
-            throw "Instrument not in userdata";
+            throw "Instrument"+(instrumennt)+" not in userdata";
         }
     }
     catch(err) {
         console.log("Could not return file", err);
-        handler.respond(response, "You do not have access to this file", 403);
+        handler.respond("You do not have access to this file", 403);
     }
 
     var path = handler.conf.get("SHEET_PATH")+title+"/"+params.file;
