@@ -182,7 +182,7 @@ Handler.prototype.titles = function() {
 }
 
 Handler.prototype.getFilenames = function(instruments, title, callback) {
-    //<sheet path>/<title>/<title>_<instrument><_*>.pdf
+    //<sheet path>/<title>/<title>_<instrument><_[0-9]>.pdf
     var tasks = instruments.length;
 
     if(tasks == 0) {
@@ -193,7 +193,7 @@ Handler.prototype.getFilenames = function(instruments, title, callback) {
     var error;
     var filenames = [];
     for(var i = 0; i < instruments.length; i++) {
-        glob(title+"_"+instruments[i]+"*.pdf",
+        glob(title+"_"+instruments[i]+"?(_)?([0-9]).pdf",
         {cwd: this.conf.get("SHEET_PATH")+title+"/"},
         function(err, files) {
             if(err) {
@@ -242,12 +242,13 @@ Handler.prototype.download = function(instruments) {
         var title = parsedFilename[0];
         var instrument = pathHelper.basename(parsedFilename[1], ".pdf");
         if(instruments.indexOf(instrument) == -1) {
-            throw "Instrument"+(instrumennt)+" not in userdata";
+            throw "Instrument "+(instrument)+" not in userdata";
         }
     }
     catch(err) {
         console.log("Could not return file", err);
         handler.respond("You do not have access to this file", 403);
+        return;
     }
 
     var path = handler.conf.get("SHEET_PATH")+title+"/"+params.file;
