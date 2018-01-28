@@ -9,7 +9,14 @@ var confKeys = {
                                 "message": "Welcome to sheetmusiclib",
                                 "doc": "https://github.com/indriApollo/rhj-sheetmusiclib"
                             },
-    "BUSY_TIMEOUT":         2000
+    "BUSY_TIMEOUT":         2000,
+    "NODEMAILER_FROM":      "no-reply@indriapollo.be",
+    "NODEMAILER_SUBJECT":   "RHJ - Partition: %sheet%",
+    "NODEMAILER_TEXT":      "Bonjour\r\n\r\nCi-joint vous trouverez le pdf pour la partition: %sheet%.\r\n\r\nBonne journée,\r\n-- Service partitions RHJ --\r\n",
+    "SMTP_SERVER":          "",
+    "SMTP_PORT":            587,
+    "SMTP_USER":            "",
+    "SMTP_PASSWORD":        ""
 }
 
 function log(...args) {

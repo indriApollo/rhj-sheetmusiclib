@@ -14,7 +14,7 @@ module.exports = {
         // Storing it in a buffer means that we can easily gzip it later
         if(typeof data !== 'string') data = JSON.stringify(data, null, 4);
         var buf = Buffer.from(data, 'utf-8');
-        
+
         response.setHeader('Access-Control-Allow-Origin', '*');
         
         zlib.gzip(buf, function (err, result) {
@@ -31,6 +31,27 @@ module.exports = {
                 response.end(result);
             }
         });
+    },
+
+    checkJson: function(jsonString, pnames) {
+        var r = {};
+        try {
+            if(!jsonString)
+                throw "Missing jsonString";
+
+            r.jsonData = JSON.parse(jsonString);
+    
+            for(var i = 0; i < pnames.length; i++) {
+                var property = pnames[i];
+                if(!r.jsonData.hasOwnProperty(property))
+                    throw "Missing or invalid "+property+" property";
+            }
+        }
+        catch(err) {
+            console.log("checkJson:", err);
+            r.error = "Invalid json";
+        }
+        return r;
     },
 
     checkToken: function(headers, returnValue, callback) {

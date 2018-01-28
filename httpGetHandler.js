@@ -258,7 +258,7 @@ Handler.prototype.download = function(instruments) {
     
         if(err) {
             console.log("Could not get file stats", err);
-            handler.respond("You do not have access to this file", 403);
+            handler.respond("Unknown sheet", 404);
             return;
         }
     

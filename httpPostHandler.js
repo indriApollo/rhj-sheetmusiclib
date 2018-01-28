@@ -1,5 +1,6 @@
 const cm = require("./common.js");
 const Db = require("./db.js");
+const fs = require("fs");
 
 function Handler(conf, pathname, query, response) {
     this.conf = conf;
@@ -114,7 +115,76 @@ Handler.prototype.addTagToTitle = function() {
     }
 }
 
-function httpPostHandler(conf, pathname, query, headers, response) {
+Handler.prototype.shareSheet = function(body, smtp) {
+    // POST share {sheet: string, email: string, comment: string}
+    var handler = this;
+
+    var checkedJson = cm.checkJson(body, ["sheet", "email", "comment"]);
+    if(checkedJson.error) {
+        handler.respond(checkedJson.error, 400);
+        return;
+    }
+
+    var email = checkedJson.jsonData.email;
+    var sheet = checkedJson.jsonData.sheet;
+    var comment = checkedJson.jsonData.comment;
+
+    // <title>_<instrument><_0-9>.pdf
+    var m = sheet.match(/^([a-zA-Z-']+)_[a-zA-Z-]+(_\d)?\.pdf$/i);
+    if(!m) {
+        handler.respond("Invalid sheet", 400);
+        return;
+    }
+
+    var path = handler.conf.get("SHEET_PATH")+m[1]+"/"+sheet;
+    console.log("Sharing", path);
+    // check the file exists
+    fs.stat(path, function(err, stats) {
+        if(err) {
+            console.log("Could not get file stats", err);
+            handler.respond("Unknown sheet", 404);
+            return;
+        }
+        sendSheetEmail();
+    });
+
+    function sendSheetEmail() {
+        console.log("Sending sheet to", email);
+        
+        if(!comment) {
+            comment = handler.conf.get("NODEMAILER_TEXT").replace(/%sheet%/g, sheet);
+        }
+        else {
+            // translate newlines to force \r\n
+            comment.replace("\r", "").replace("\n", "\r\n");
+        }
+
+        smtp.sendMail({
+            from: handler.conf.get("NODEMAILER_FROM"),
+            to: email,
+            subject: handler.conf.get("NODEMAILER_SUBJECT").replace(/%sheet%/g, sheet),
+            text: comment,
+            attachments: [{
+                filename: sheet,
+                path: path,
+                contentType: "application/pdf"
+            }]
+        }, function(err, info) {
+            if(err) {
+                console.log("Could not send email", err);
+                handler.respond("Internal service error", 500);
+            }
+            else if(!info.accepted || !info.accepted[0] == email) {
+                console.log("Email was rejected", info);
+                handler.respond("Email was rejected", 500);
+            }
+            else
+                handler.respond({"message": "Email successfully sent"}, 200);
+        });
+    }
+}
+
+function httpPostHandler(conf, pathname, query, headers, body, smtp, response) {
 
     console.log("POST request for" ,pathname);
 
@@ -139,6 +209,8 @@ function httpPostHandler(conf, pathname, query, headers, response) {
          * 
          * /titles/<title>?tag=<newtag>
          * 
+         * /share
+         * 
          */
 
         if(/^\/tags\/[\w-]*$/.test(pathname) )
@@ -146,6 +218,9 @@ function httpPostHandler(conf, pathname, query, headers, response) {
 
         else if(/^\/titles\/[\w-]*$/.test(pathname))
             handler.addTagToTitle();
+
+        else if(pathname == "/share")
+            handler.shareSheet(body, smtp);
 
         else
             handler.respond("Unknown uri", 404);

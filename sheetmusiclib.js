@@ -6,6 +6,7 @@ const urlHelper = require("url");
 const querystring = require("querystring");
 const conf = require("./configloader.js");
 const cm = require("./common.js");
+const nodemailer = require("nodemailer");
 
 const httpGetHandler = require("./httpGetHandler.js")
 const httpPostHandler = require("./httpPostHandler.js")
@@ -14,6 +15,16 @@ const httpDeleteHandler = require("./httpDeleteHandler.js")
 
 console.log("Loading config ...");
 conf.load();
+
+const smtp = nodemailer.createTransport({
+    host: conf.get("SMTP_SERVER"),
+    port: conf.get("SMTP_PORT"),
+    secure: false, // upgrade later with STARTTLS
+    auth: {
+        user: conf.get("SMTP_USER"),
+        pass: conf.get("SMTP_PASSWORD")
+    }
+});
 
 http.createServer(function(request, response) {
     
@@ -45,7 +56,7 @@ http.createServer(function(request, response) {
                 break;
 
             case "POST":
-                httpPostHandler(conf, pathname, query, headers, response);
+                httpPostHandler(conf, pathname, query, headers, body, smtp, response);
                 break;
 
             case "PUT":
