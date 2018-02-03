@@ -129,6 +129,12 @@ Handler.prototype.shareSheet = function(body, smtp) {
     var sheet = checkedJson.jsonData.sheet;
     var comment = checkedJson.jsonData.comment;
 
+    // <any but @>@<any but @>.<any but @>
+    if(!/[^@]*@[^@]*\.[^@]*/.test(email)) {
+        handler.respond("Invalid email", 400);
+        return;
+    }
+
     // <title>_<instrument><_0-9>.pdf
     var m = sheet.match(/^([a-zA-Z-']+)_[a-zA-Z-]+(_\d)?\.pdf$/i);
     if(!m) {
